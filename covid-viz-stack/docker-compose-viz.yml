@@ -1,0 +1,137 @@
+version: '3.8'
+
+networks:
+  covid-network:
+    driver: bridge
+
+volumes:
+  postgres-analytics-data:
+  grafana-data:
+
+services:
+  # Base de données analytique PostgreSQL
+  postgres-analytics:
+    image: postgres:15-alpine
+    container_name: covid-postgres-analytics
+    environment:
+      POSTGRES_DB: covid_analytics
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres-analytics-data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d/
+    ports:
+      - "5433:5432"
+    networks:
+      - covid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics -d covid_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # API FastAPI
+  covid-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: covid-fastapi
+    environment:
+      - DATA_DIR=/app/data
+      - DATABASE_URL=postgresql://analytics:analytics123@postgres-analytics:5432/covid_analytics
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    networks:
+      - covid-network
+    depends_on:
+      postgres-analytics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Grafana pour les dashboards
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: covid-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/config:/etc/grafana/provisioning/config
+    ports:
+      - "3000:3000"
+    networks:
+      - covid-network
+    depends_on:
+      - postgres-analytics
+      - covid-api
+    restart: unless-stopped
+
+  # Redis pour le cache (optionnel mais recommandé)
+  redis:
+    image: redis:7-alpine
+    container_name: covid-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - ./redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - covid-network
+    restart: unless-stopped
+
+  # Service ETL pour alimenter PostgreSQL
+  etl-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.etl
+    container_name: covid-etl
+    environment:
+      - SOURCE_DATA_DIR=/app/data
+      - DATABASE_URL=postgresql://analytics:analytics123@postgres-analytics:5432/covid_analytics
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - covid-network
+    depends_on:
+      postgres-analytics:
+        condition: service_healthy
+    # Service qui se lance périodiquement via cron
+    restart: "no"
+
+  # Nginx reverse proxy (optionnel pour la production)
+  nginx:
+    image: nginx:alpine
+    container_name: covid-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - covid-network
+    depends_on:
+      - grafana
+      - covid-api
+    restart: unless-stopped
+    profiles:
+      - production

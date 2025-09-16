@@ -1,0 +1,21 @@
+apiVersion: 1
+datasources:
+  - name: PostgreSQL-Analytics
+    type: postgres
+    uid: postgres-analytics
+    access: proxy
+    url: postgres-analytics:5432
+    database: covid_analytics
+    user: grafana_reader
+    secureJsonData:
+      password: grafana_read_2024!
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+    isDefault: true
+  - name: COVID-API
+    type: grafana-simple-json-datasource
+    uid: covid-api
+    access: proxy
+    url: http://covid-api:8000/grafana
+    isDefault: false

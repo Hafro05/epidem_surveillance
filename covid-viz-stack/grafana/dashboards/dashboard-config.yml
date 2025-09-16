@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: 'COVID Dashboards'
+    orgId: 1
+    folder: 'COVID Surveillance'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

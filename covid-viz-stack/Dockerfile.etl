@@ -1,0 +1,49 @@
+# Dockerfile.etl - ETL Service
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    python-is-python3 \
+    procps \
+    cron \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installation des dépendances Python
+COPY requirements-etl.txt .
+RUN pip install --no-cache-dir -r requirements-etl.txt
+
+# Copie du code ETL
+COPY etl_postgres.py .
+COPY transformation_script.py .
+
+# Création des dossiers nécessaires
+RUN mkdir -p /app/data/{raw,processed} /app/logs
+RUN chmod 755 /app/data /app/logs
+
+# Scripts ETL
+COPY etl-cron.sh /app/etl-cron.sh
+COPY etl-init.sh /app/etl-init.sh
+RUN chmod +x /app/etl-cron.sh /app/etl-init.sh
+
+# Configuration cron (exécution toutes les heures à la minute 15)
+RUN echo "15 * * * * cd /app && /app/etl-cron.sh >> /app/logs/etl-cron.log 2>&1" > /tmp/crontab \
+    && crontab /tmp/crontab
+
+# Variables d'environnement
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV SOURCE_DATA_DIR=/app/data
+ENV DATABASE_URL=postgresql://analytics:analytics123@postgres-analytics:5432/covid_analytics
+ENV REDIS_URL=redis://redis:6379/0
+
+# Health check pour le service ETL
+HEALTHCHECK --interval=60s --timeout=30s --start-period=10s --retries=3 \
+    CMD python -c "import psycopg2; psycopg2.connect('$DATABASE_URL')" || exit 1
+
+# Commande de démarrage
+CMD ["/app/etl-init.sh"]

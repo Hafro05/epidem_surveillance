@@ -1,0 +1,36 @@
+# Dockerfile.api - FastAPI Service
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    procps \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installation des dépendances Python
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
+
+# Copie du code
+COPY fastapi_serving.py .
+COPY data/ ./data/
+COPY logs/ ./logs/
+
+# Variables d'environnement
+ENV DATA_DIR=/app/data
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/ || exit 1
+
+# Exposition du port
+EXPOSE 8000
+
+# Commande de démarrage
+CMD ["uvicorn", "fastapi_serving:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

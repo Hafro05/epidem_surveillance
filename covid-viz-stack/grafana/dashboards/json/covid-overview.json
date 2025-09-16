@@ -1,0 +1,307 @@
+{
+    "id": null,
+    "uid": "covid-surveillance",
+    "title": "COVID-19 Surveillance Dashboard",
+    "description": "Vue d'ensemble de la surveillance épidémiologique COVID-19",
+    "tags": ["covid", "epidemiology", "surveillance"],
+    "timezone": "Europe/Paris",
+    "refresh": "5m",
+    "schemaVersion": 39,
+    "version": 1,
+    "time": {
+      "from": "now-90d",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "📊 Test de Connexion Base",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "datasource": {
+              "type": "postgres",
+              "uid": "postgres-analytics"
+            },
+            "rawSql": "SELECT NOW() as time, 'Connexion PostgreSQL' as metric, 1 as value\nUNION ALL\nSELECT NOW() as time, 'Tables disponibles' as metric, COUNT(*)::int as value FROM information_schema.tables WHERE table_schema = 'public'",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^value$/"
+          },
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center"
+        }
+      },
+      {
+        "id": 2,
+        "title": "📈 Données COVID Disponibles",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "datasource": {
+              "type": "postgres",
+              "uid": "postgres-analytics"
+            },
+            "rawSql": "SELECT \n  'Lignes de données' as metric,\n  COALESCE((SELECT COUNT(*)::int FROM covid_daily_data WHERE date >= CURRENT_DATE - INTERVAL '7 days'), 0) as value\nUNION ALL\nSELECT \n  'Pays surveillés' as metric,\n  COALESCE((SELECT COUNT(DISTINCT iso_code)::int FROM covid_daily_data WHERE date >= CURRENT_DATE - INTERVAL '7 days'), 0) as value\nUNION ALL\nSELECT \n  'Dernière mise à jour' as metric,\n  COALESCE(EXTRACT(DAY FROM (CURRENT_DATE - MAX(date)))::int, 999) as value\nFROM covid_daily_data",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "999": {
+                    "text": "Pas de données"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 2},
+                {"color": "red", "value": 7}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^value$/"
+          },
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "background",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 3,
+        "title": "📈 Nouveaux Cas - Pays Européens (si données disponibles)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+        "targets": [
+          {
+            "datasource": {
+              "type": "postgres",
+              "uid": "postgres-analytics"
+            },
+            "rawSql": "SELECT\n  date as \"time\",\n  location as metric,\n  COALESCE(new_cases_7day_avg, new_cases, 0) as value\nFROM covid_daily_data\nWHERE iso_code IN ('FRA', 'DEU', 'ITA', 'ESP', 'GBR')\n  AND date >= $__timeFrom()\n  AND date <= $__timeTo()\n  AND (new_cases_7day_avg IS NOT NULL OR new_cases IS NOT NULL)\nORDER BY date, location",
+            "format": "time_series",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "tooltip": false,
+                "vis": false,
+                "legend": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null}
+              ]
+            },
+            "unit": "short",
+            "min": 0
+          }
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": ["lastNotNull", "max", "mean"]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "📊 État des Données par Pays",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14},
+        "targets": [
+          {
+            "datasource": {
+              "type": "postgres",
+              "uid": "postgres-analytics"
+            },
+            "rawSql": "SELECT\n  iso_code as \"Code Pays\",\n  location as \"Pays\",\n  MAX(date) as \"Dernière Donnée\",\n  COUNT(*) as \"Nombre d'Entrées\",\n  COALESCE(MAX(total_cases), 0)::int as \"Total Cas\",\n  COALESCE(MAX(total_deaths), 0)::int as \"Total Décès\",\n  ROUND(COALESCE(AVG(data_quality_score), 0), 1) as \"Score Qualité\"\nFROM covid_daily_data\nWHERE date >= CURRENT_DATE - INTERVAL '30 days'\nGROUP BY iso_code, location\nORDER BY \"Dernière Donnée\" DESC, \"Total Cas\" DESC\nLIMIT 20",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Score Qualité"
+              },
+              "properties": [
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "steps": [
+                      {"color": "red", "value": null},
+                      {"color": "yellow", "value": 70},
+                      {"color": "green", "value": 90}
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "mode": "background",
+                    "type": "color-background"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false,
+            "reducer": ["sum"],
+            "countRows": false
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgres-analytics"
+          },
+          "definition": "SELECT DISTINCT location FROM covid_daily_data WHERE date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY location",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Pays",
+          "multi": true,
+          "name": "country",
+          "options": [],
+          "query": "SELECT DISTINCT location FROM covid_daily_data WHERE date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY location",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        }
+      ]
+    },
+    "annotations": {
+      "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "liveNow": false,
+    "style": "dark"
+  }
