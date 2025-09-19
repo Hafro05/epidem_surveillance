@@ -6,9 +6,9 @@ datasources:
     access: proxy
     url: postgres-analytics:5432
     database: covid_analytics
-    user: grafana_reader
+    user: analytics
     secureJsonData:
-      password: grafana_read_2024!
+      password: analytics123
     jsonData:
       sslmode: disable
       postgresVersion: 1500

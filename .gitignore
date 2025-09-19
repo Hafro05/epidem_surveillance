@@ -5,7 +5,7 @@ airflow.db
 webserver_config.py
 
 #Redis 
-covid-viz-stack/redis-data/
+covid-viz-stack/redis-data/*
 
 # Python
 __pycache__/

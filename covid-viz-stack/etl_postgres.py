@@ -11,14 +11,12 @@ from datetime import datetime, timedelta
 import logging
 import sqlalchemy as sa
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, Date, DateTime, Boolean
-from sqlalchemy.dialects.postgresql import UUID, JSONB, insert
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
-import psycopg2
 from contextlib import contextmanager
 import redis
 import json
 from typing import Optional, Dict, List, Any
-import hashlib
 
 # Configuration
 DATABASE_URL = "postgresql://analytics:analytics123@postgres-analytics:5432/covid_analytics"
